@@ -10,7 +10,7 @@ Sync Controller is an importable controller that helps you build multi-cluster m
 
 Sync Controller accomplishes this by synchronizing the `spec` and `status` fields of custom resources that live on different clusters.
 
-[image]
+![Architecture](https://github.com/gravitational/sync-controller/assets/1848837/9681f37d-84b8-44b8-8514-d4fddff0404f)
 
 Sync Controller runs in a local (e.g., region-specific) cluster and watches a remote (e.g., management plane) cluster for instances of a specified custom resource.
 
@@ -47,6 +47,12 @@ Controllers in the local cluster can safely use `metadata.generation`.
 
 ## Usage
 
+Sync Controller is intended to be consumed as a Go package.
+The resource it reconciles is defined at compile-time.
+This allows regional controllers to share an informer cache with sync-controller.
+
+To use sync controller, add it to your regional/worker controller manager:
+
 ```golang
 package main
 
@@ -72,15 +78,15 @@ func main() {
 		options.Scheme = scheme
 	})
 	if err != nil {
-		log.Fatal("Failed to create management cluster")
+		log.Fatal(err)
 	}
 	localConfig, err = rest.InClusterConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 	mgr, err := ctrl.NewManager(localConfig, ctrl.Options{
-		Scheme:             scheme,
-		Port:               9443,
+		Scheme: scheme,
+		Port:   9443,
 	})
 	if err != nil {
 		log.Fatal(err)
