@@ -48,12 +48,12 @@ Controllers in the local cluster can safely use `metadata.generation`.
 ## Usage
 
 ```golang
-package test
+package main
 
 import (
 	"log"
 
-	synccontroller "github.com/gravitational/sync-controller"
+	sync "github.com/gravitational/sync-controller/controller"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -85,7 +85,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	syncReconciler := &synccontroller.Reconciler{
+	syncReconciler := &sync.Reconciler{
 		Client:                 mgr.GetClient(),
 		RemoteClient:           remoteCluster.GetClient(),
 		RemoteCache:            remoteCluster.GetCache(),
