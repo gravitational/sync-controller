@@ -15,7 +15,7 @@ Sync Controller accomplishes this by synchronizing the `spec` and `status` field
 Sync Controller runs in a local (e.g., region-specific) cluster and watches a remote (e.g., management plane) cluster for instances of a specified custom resource.
 
 Local resources are created automatically when remote resources appear.
-`spec` is synced from remote to local, while `status` is synced in the opposite directly, from local to remote.
+`spec` is synced from remote to local, while `status` is synced in the opposite direction, from local to remote.
 
 Remote resources are generally created and updated by a management-plane controller that is aware of Sync Controller, but they are never reconciled on the remote cluster.
 Local resources are created by Sync Controller, and may be reconciled by a controller that is not aware of Sync Controller.
