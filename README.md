@@ -72,7 +72,7 @@ func main() {
 		options.Scheme = scheme
 	})
 	if err != nil {
-		log.Fatal("Failed to create management cluster")
+		log.Fatal(err)
 	}
 	localConfig, err = rest.InClusterConfig()
 	if err != nil {

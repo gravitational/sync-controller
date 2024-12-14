@@ -476,15 +476,16 @@ func (r *Reconciler) syncLocal(ctx context.Context, localNs *corev1.Namespace, l
 	// Update is preferable to Patch, so we guarantee that spec never diverges.
 	// This also slows down spec updates in exchange for more granular status updates.
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, local, func() error {
-		ok := setField(local, fieldSpec, getField(remote, fieldSpec))
+		remoteC := remote.DeepCopyObject().(client.Object)
+		ok := setField(local, fieldSpec, getField(remoteC, fieldSpec))
 		if !ok {
 			return errors.New("cannot set spec, invalid struct")
 		}
-		anno := remote.GetAnnotations()
+		anno := remoteC.GetAnnotations()
 		delete(anno, AnnotationRemoteGeneration)
 		delete(anno, AnnotationLocalGeneration)
 		local.SetAnnotations(anno)
-		local.SetLabels(remote.GetLabels())
+		local.SetLabels(remoteC.GetLabels())
 		return nil
 	})
 	if err != nil {
