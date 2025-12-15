@@ -291,20 +291,19 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
 		// Translate matching local resources into local resource reconcile requests
-		Watches(&source.Kind{Type: r.Resource}, // Remote cluster
+		Watches(r.Resource, // Local Cluster
 			handler.EnqueueRequestsFromMapFunc(r.translateLocal),
 		).
 		// Translate matching remote resources into local resource reconcile requests
-		Watches(source.NewKindWithCache(r.Resource, r.RemoteCache), // Remote cluster
-			handler.EnqueueRequestsFromMapFunc(r.translateRemote),
-		).
+		WatchesRawSource(source.Kind(r.RemoteCache, r.Resource, handler.EnqueueRequestsFromMapFunc(r.translateRemote))). // Remote cluster
+
 		// Reconcile on namespaces with owner annotations to protect against orphan namespaces
-		Watches(&source.Kind{Type: &corev1.Namespace{}},
+		Watches(&corev1.Namespace{},
 			handler.EnqueueRequestsFromMapFunc(r.translateNamespace),
 		).
 		// Sync specified secrets on update
-		Watches(&source.Kind{Type: &corev1.Secret{}},
-			&handler.EnqueueRequestForOwner{OwnerType: r.Resource, IsController: true},
+		Watches(&corev1.Secret{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), r.Resource, handler.OnlyControllerOwner()),
 			builder.WithPredicates(predicate.NewPredicateFuncs(r.filterLocalSecrets)),
 		).
 		WithOptions(controller.Options{
@@ -314,7 +313,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // translateLocal translates local object name requests to local object names
-func (r *Reconciler) translateLocal(obj client.Object) []reconcile.Request {
+func (r *Reconciler) translateLocal(ctx context.Context, obj client.Object) []reconcile.Request {
 	name := obj.GetName()
 	namespace := obj.GetNamespace()
 	if !strings.HasPrefix(namespace, r.NamespacePrefix) ||
@@ -329,7 +328,7 @@ func (r *Reconciler) translateLocal(obj client.Object) []reconcile.Request {
 }
 
 // translateRemote translates remote object name requests to local object names
-func (r *Reconciler) translateRemote(obj client.Object) []reconcile.Request {
+func (r *Reconciler) translateRemote(ctx context.Context, obj client.Object) []reconcile.Request {
 	name := obj.GetName()
 	namespace := obj.GetNamespace()
 	if !strings.HasPrefix(namespace, r.NamespacePrefix) ||
@@ -343,7 +342,7 @@ func (r *Reconciler) translateRemote(obj client.Object) []reconcile.Request {
 	}}}
 }
 
-func (r *Reconciler) translateNamespace(obj client.Object) []reconcile.Request {
+func (r *Reconciler) translateNamespace(ctx context.Context, obj client.Object) []reconcile.Request {
 	namespace := obj.GetName()
 	if !strings.HasPrefix(namespace, r.NamespacePrefix) {
 		return nil
