@@ -446,9 +446,9 @@ func TestSync(t *testing.T) {
 			// Generate request
 			var req reconcile.Request
 			if tc.remoteIn != nil {
-				req = r.translateRemote(tc.remoteIn)[0]
+				req = r.translateRemote(ctx, tc.remoteIn)[0]
 			} else if tc.localIn != nil {
-				req = r.translateLocal(tc.localIn)[0]
+				req = r.translateLocal(ctx, tc.localIn)[0]
 			}
 
 			// Reconcile for finalizer
