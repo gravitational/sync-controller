@@ -77,6 +77,8 @@ func TestSync(t *testing.T) {
 		remoteIn, remoteOut client.Object
 		localIn, localOut   client.Object
 
+		labelSelector metav1.LabelSelector
+
 		localSecretsIn   []*corev1.Secret
 		remoteSecretsOut []*corev1.Secret
 
@@ -422,8 +424,94 @@ func TestSync(t *testing.T) {
 			remoteSecretsOut:   nil,
 			skipNamespaceOwner: true,
 		},
+		{
+			desc: "Remote label selector mismatch deletes local",
+			remoteIn: &policyv1.PodDisruptionBudget{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"sync": "no"},
+				},
+				Spec: policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: toIntstr(2),
+				},
+				Status: policyv1.PodDisruptionBudgetStatus{
+					CurrentHealthy: 2,
+				},
+			},
+			remoteOut: &policyv1.PodDisruptionBudget{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"sync": "no"},
+				},
+				Spec: policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: toIntstr(2),
+				},
+				Status: policyv1.PodDisruptionBudgetStatus{
+					CurrentHealthy: 2,
+				},
+			},
+			localIn: &policyv1.PodDisruptionBudget{
+				Spec: policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: toIntstr(2),
+				},
+				Status: policyv1.PodDisruptionBudgetStatus{
+					CurrentHealthy: 2,
+				},
+			},
+			localOut: &policyv1.PodDisruptionBudget{},
+			labelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"sync": "yes"},
+			},
+			remoteSecretsOut: nil,
+		},
+		{
+			desc: "Remote label selector match creates local",
+			remoteIn: &policyv1.PodDisruptionBudget{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"sync": "yes"},
+				},
+				Spec: policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: toIntstr(2),
+				},
+				Status: policyv1.PodDisruptionBudgetStatus{
+					CurrentHealthy: 0,
+				},
+			},
+			remoteOut: &policyv1.PodDisruptionBudget{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:     map[string]string{"sync": "yes"},
+					Finalizers: []string{FinalizerRemote},
+					Annotations: map[string]string{
+						AnnotationLocalGeneration:  "2",
+						AnnotationRemoteGeneration: "1",
+					},
+				},
+				Spec: policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: toIntstr(2),
+				},
+				Status: policyv1.PodDisruptionBudgetStatus{
+					CurrentHealthy: 0,
+				},
+			},
+			localIn: &policyv1.PodDisruptionBudget{},
+			localOut: &policyv1.PodDisruptionBudget{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"sync": "yes"},
+				},
+				Spec: policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: toIntstr(2),
+				},
+				Status: policyv1.PodDisruptionBudgetStatus{
+					CurrentHealthy: 0,
+				},
+			},
+			labelSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"sync": "yes"},
+			},
+			remoteSecretsOut: nil,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			r.LabelSelector = tc.labelSelector
+
 			// Create namespaces with input values
 			remoteNs, localNs := setupTestCase(t, ctx, &setupConfig{
 				client:               testClient,
