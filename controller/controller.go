@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -126,6 +127,9 @@ type Reconciler struct {
 	LocalPropagationPolicy client.PropagationPolicy
 	// ConcurrentReconciles sets the number of concurrent reconciles.
 	ConcurrentReconciles int
+	// LabelSelector is used to determine if the given resource should be synced based
+	// on configured labels. Defaults to selecting all.
+	LabelSelector metav1.LabelSelector
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -189,10 +193,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.
 		return ctrl.Result{}, nil
 	}
 
+	labelsMatch, err := r.matchesLabelSelector(remote)
+	if err != nil {
+		log.Error(err, "(remote) invalid label selector")
+		return ctrl.Result{}, trace.Wrap(err)
+	}
+
 	// If remote is missing or being deleted, delete local namespace or resource and quit.
 	// The namespace is only deleted if its owning resource is being deleted.
 	if creationTime(remote).IsZero() ||
-		!remote.GetDeletionTimestamp().IsZero() {
+		!remote.GetDeletionTimestamp().IsZero() ||
+		!labelsMatch {
 
 		// Delete namespace if present and created for this resource.
 		// Otherwise, just delete the resource if it exists.
@@ -371,6 +382,14 @@ func (r *Reconciler) filterLocalSecrets(obj client.Object) bool {
 		}
 	}
 	return false
+}
+
+func (r *Reconciler) matchesLabelSelector(obj client.Object) (bool, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&r.LabelSelector)
+	if err != nil {
+		return false, err
+	}
+	return selector.Matches(labels.Set(obj.GetLabels())), nil
 }
 
 // addFinalizer adds a finalizer to the remote resource.
